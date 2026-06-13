@@ -15,7 +15,7 @@ export function DispatchCenter() {
   const [completing, setCompleting] = useState(false);
   const [vehicleBefore, setVehicleBefore] = useState<Vehicle | null>(null);
   const [vehicleAfter, setVehicleAfter] = useState<Vehicle | null>(null);
-  const [verifyResult, setVerifyResult] = useState<{ mileageDelta: number; fuelChanged: boolean; statusChanged: boolean } | null>(null);
+  const [verifyResult, setVerifyResult] = useState<{ mileageDelta: number; fuelDelta: number; fuelChanged: boolean; statusChanged: boolean; mileageMatch: boolean } | null>(null);
 
   const fetchOrders = () => { dispatchApi.list().then(setOrders).catch(() => setOrders([])); };
   useEffect(fetchOrders, []);
@@ -60,21 +60,26 @@ export function DispatchCenter() {
       } catch { /* ignore */ }
       if (vehicleBefore && afterVehicle) {
         const mileageDelta = afterVehicle.mileage - vehicleBefore.mileage;
-        const fuelChanged = afterVehicle.fuelConsumption !== vehicleBefore.fuelConsumption;
+        const fuelDelta = +(afterVehicle.fuelConsumption - vehicleBefore.fuelConsumption).toFixed(1);
+        const fuelChanged = fuelDelta !== 0;
         const statusChanged = afterVehicle.status !== vehicleBefore.status;
-        setVerifyResult({ mileageDelta, fuelChanged, statusChanged });
-        if (mileageDelta > 0) {
-          message.success(`车辆里程已更新 +${mileageDelta}km，油耗效率${fuelChanged ? '已重算' : '无变化'}`);
+        const mileageMatch = mileageDelta === actualMileage;
+        setVerifyResult({ mileageDelta, fuelDelta, fuelChanged, statusChanged, mileageMatch });
+        if (mileageMatch) {
+          message.success(`车辆里程已更新 +${mileageDelta}km，油耗效率${fuelChanged ? `变化 ${fuelDelta > 0 ? '+' : ''}${fuelDelta} L/100km` : '无变化'}`);
         } else {
-          message.warning('车辆里程未发生变化，请检查后端联动逻辑');
+          message.warning(`里程更新不符：期望 +${actualMileage}km，实际 +${mileageDelta}km，请检查`);
         }
       } else if (result.vehicleBefore && result.vehicleAfter) {
         const vb = result.vehicleBefore;
         const va = result.vehicleAfter;
         const mileageDelta = va.mileage - vb.mileage;
-        const fuelChanged = va.fuelConsumption !== vb.fuelConsumption;
-        if (mileageDelta > 0) {
-          message.success(`车辆里程已更新 +${mileageDelta}km，油耗效率${fuelChanged ? '已重算' : '无变化'}`);
+        const fuelDelta = +(va.fuelConsumption - vb.fuelConsumption).toFixed(1);
+        const fuelChanged = fuelDelta !== 0;
+        const mileageMatch = mileageDelta === actualMileage;
+        setVerifyResult({ mileageDelta, fuelDelta, fuelChanged, statusChanged: va.status !== vb.status, mileageMatch });
+        if (mileageMatch) {
+          message.success(`车辆里程已更新 +${mileageDelta}km，油耗效率${fuelChanged ? `变化 ${fuelDelta > 0 ? '+' : ''}${fuelDelta} L/100km` : '无变化'}`);
         }
       } else {
         message.success('调度单已完成');
@@ -107,10 +112,10 @@ export function DispatchCenter() {
         <InputNumber min={1} style={{ width: 200 }} value={actualMileage} onChange={(v: number | null) => setActualMileage(v)} placeholder="请输入本趟实际里程" />
       </div>
       {vehicleBefore && actualMileage && actualMileage > 0 && <p style={{ marginTop: 8, color: '#1677ff' }}>预计更新：总里程 {vehicleBefore.mileage.toLocaleString()} → {(vehicleBefore.mileage + actualMileage).toLocaleString()} km</p>}
-      {vehicleAfter && verifyResult && <div style={{ marginTop: 12, padding: 12, background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 6 }}>
-        <p style={{ margin: 0, fontWeight: 600 }}>接口验证：车辆数据已更新</p>
-        <p style={{ margin: '4px 0 0' }}>里程变更：{vehicleBefore?.mileage.toLocaleString()} → {vehicleAfter.mileage.toLocaleString()} km（+{verifyResult.mileageDelta} km）</p>
-        <p style={{ margin: '4px 0 0' }}>油耗效率：{vehicleBefore?.fuelConsumption} → {vehicleAfter.fuelConsumption} L/100km{verifyResult.fuelChanged ? '（已重算）' : '（无变化）'}</p>
+      {vehicleAfter && verifyResult && <div style={{ marginTop: 12, padding: 12, background: verifyResult.mileageMatch ? '#f6ffed' : '#fff2f0', border: `1px solid ${verifyResult.mileageMatch ? '#b7eb8f' : '#ffccc7'}`, borderRadius: 6 }}>
+        <p style={{ margin: 0, fontWeight: 600 }}>接口验证：车辆数据{verifyResult.mileageMatch ? '已正确更新' : '更新异常'}</p>
+        <p style={{ margin: '4px 0 0' }}>里程变更：{vehicleBefore?.mileage.toLocaleString()} → {vehicleAfter.mileage.toLocaleString()} km（+{verifyResult.mileageDelta} km）{verifyResult.mileageMatch ? <span style={{ color: '#52c41a' }}>✓ 与输入一致</span> : <span style={{ color: '#ff4d4f' }}>✗ 与输入 {actualMileage} km 不符</span>}</p>
+        <p style={{ margin: '4px 0 0' }}>油耗效率：{vehicleBefore?.fuelConsumption} → {vehicleAfter.fuelConsumption} L/100km{verifyResult.fuelChanged ? `（变化 ${verifyResult.fuelDelta > 0 ? '+' : ''}${verifyResult.fuelDelta}）` : '（无变化）'}</p>
         <p style={{ margin: '4px 0 0' }}>车辆状态：{vehicleBefore?.status} → {vehicleAfter.status}{verifyResult.statusChanged ? '（已变更）' : ''}</p>
       </div>}
       {!vehicleAfter && <p style={{ marginTop: 12, color: '#888', fontSize: 12 }}>提交后车辆总里程与油耗效率将自动更新</p>}

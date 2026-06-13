@@ -73,8 +73,10 @@ def create_order(payload):
     _NEXT_ID += 1
     return order
 
-def _recalc_fuel_consumption(vehicle_id, current_fuel):
+def _recalc_fuel_consumption(vehicle_id, current_fuel, new_mileage):
     records = [r for r in list_fuel_records() if r['vehicleId'] == vehicle_id]
+    if not records:
+        return current_fuel
     records.sort(key=lambda r: r['date'])
     if len(records) >= 2:
         total_liters = 0.0
@@ -86,6 +88,10 @@ def _recalc_fuel_consumption(vehicle_id, current_fuel):
                 total_mileage_delta += delta
         if total_mileage_delta > 0:
             return round(total_liters / total_mileage_delta * 100, 1)
+    last_record = records[-1]
+    last_delta = new_mileage - last_record['mileage']
+    if last_delta > 0:
+        return round(last_record['liters'] / last_delta * 100, 1)
     return current_fuel
 
 def complete_order(order_id, payload):
@@ -107,7 +113,7 @@ def complete_order(order_id, payload):
             if vehicle is not None:
                 vehicle_before = {'mileage': vehicle['mileage'], 'fuelConsumption': vehicle['fuelConsumption'], 'status': vehicle['status']}
                 new_mileage = vehicle['mileage'] + actual_mileage
-                new_fuel = _recalc_fuel_consumption(o['vehicleId'], vehicle['fuelConsumption'])
+                new_fuel = _recalc_fuel_consumption(o['vehicleId'], vehicle['fuelConsumption'], new_mileage)
                 updated = update_vehicle_mileage_and_fuel(o['vehicleId'], new_mileage, new_fuel)
                 if updated:
                     vehicle_after = {'mileage': updated['mileage'], 'fuelConsumption': updated['fuelConsumption'], 'status': updated['status']}
