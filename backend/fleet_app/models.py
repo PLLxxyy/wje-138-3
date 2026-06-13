@@ -32,6 +32,7 @@ class DispatchOrder(models.Model):
     plan_arrive_at = models.DateTimeField(null=True)
     actual_depart_at = models.DateTimeField(null=True)
     actual_arrive_at = models.DateTimeField(null=True)
+    actual_mileage = models.IntegerField(default=0)
     cargo = models.CharField(max_length=160)
     weight = models.FloatField(default=0)
     freight = models.FloatField(default=0)
