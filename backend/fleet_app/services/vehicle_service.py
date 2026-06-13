@@ -36,6 +36,12 @@ def get_vehicle(vehicle_id):
             return v
     return None
 
+def get_vehicle_detail(vehicle_id):
+    vehicle = get_vehicle(vehicle_id)
+    if vehicle is None:
+        return None
+    return dict(vehicle)
+
 def update_vehicle_mileage_and_fuel(vehicle_id, new_mileage, new_fuel):
     for i, v in enumerate(_VEHICLES):
         if v['id'] == vehicle_id:

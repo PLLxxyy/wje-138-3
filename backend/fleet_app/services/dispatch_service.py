@@ -101,12 +101,20 @@ def complete_order(order_id, payload):
             o['actualArriveAt'] = payload.get('actualArriveAt') or datetime.now().strftime('%Y-%m-%d %H:%M')
             if not o.get('actualDepartAt'):
                 o['actualDepartAt'] = o['planDepartAt']
+            vehicle_before = None
+            vehicle_after = None
             vehicle = get_vehicle(o['vehicleId'])
             if vehicle is not None:
+                vehicle_before = {'mileage': vehicle['mileage'], 'fuelConsumption': vehicle['fuelConsumption'], 'status': vehicle['status']}
                 new_mileage = vehicle['mileage'] + actual_mileage
                 new_fuel = _recalc_fuel_consumption(o['vehicleId'], vehicle['fuelConsumption'])
-                update_vehicle_mileage_and_fuel(o['vehicleId'], new_mileage, new_fuel)
-            return _ORDERS[i]
+                updated = update_vehicle_mileage_and_fuel(o['vehicleId'], new_mileage, new_fuel)
+                if updated:
+                    vehicle_after = {'mileage': updated['mileage'], 'fuelConsumption': updated['fuelConsumption'], 'status': updated['status']}
+            result = dict(_ORDERS[i])
+            result['vehicleBefore'] = vehicle_before
+            result['vehicleAfter'] = vehicle_after
+            return result
     return None
 
 def get_order(order_id):
